@@ -1,0 +1,1349 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#0c0a09" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="My Budget" />
+  <link rel="manifest" href="./manifest.json" />
+  <link rel="icon" type="image/png" sizes="192x192" href="./icon-192.png" />
+  <link rel="apple-touch-icon" href="./icon-512.png" />
+  <title>Personal Household Budget</title>
+  <script src="https://cdn.tailwindcss.com/3.4.17"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: { sans: ['Inter', 'sans-serif'] },
+          colors: {
+            obsidian: {
+              950: '#0a0908',
+              900: '#12100e',
+              800: '#1c1917',
+              700: '#292524',
+              600: '#44403c'
+            },
+            amberGold: {
+              400: '#fbbf24',
+              500: '#f59e0b',
+              600: '#d97706'
+            }
+          }
+        }
+      }
+    };
+  </script>
+  <style>
+    body {
+      background-color: #0c0a09;
+      color: #f5f5f4;
+      font-family: 'Inter', sans-serif;
+    }
+    .leather-card {
+      background: linear-gradient(145deg, #1c1917 0%, #141210 100%);
+      border: 1px solid #292524;
+      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.6), inset 0 1px 0 0 rgba(255, 255, 255, 0.04);
+    }
+    .gold-border {
+      border-color: rgba(245, 158, 11, 0.35);
+    }
+    .custom-scroll::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    .custom-scroll::-webkit-scrollbar-track {
+      background: #141210;
+    }
+    .custom-scroll::-webkit-scrollbar-thumb {
+      background: #44403c;
+      border-radius: 3px;
+    }
+  </style>
+</head>
+<body class="min-h-screen antialiased selection:bg-amber-500/30 selection:text-amber-200 pb-12">
+
+  <!-- Toast Notification -->
+  <div id="toast" class="fixed bottom-5 right-5 z-50 hidden transform transition-all duration-300 translate-y-2 opacity-0">
+    <div class="bg-stone-900 border border-amber-500/50 text-stone-100 px-4 py-3 rounded-xl shadow-2xl flex items-center gap-3">
+      <span id="toastIcon" class="w-2.5 h-2.5 rounded-full bg-amber-400"></span>
+      <span id="toastMsg" class="text-sm font-medium">Saved</span>
+    </div>
+  </div>
+
+  <!-- Header -->
+  <header class="sticky top-0 z-30 bg-stone-950/90 backdrop-blur-md border-b border-stone-800/80">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 py-3.5 flex flex-wrap items-center justify-between gap-3">
+      <div class="flex items-center gap-3">
+        <img src="./icon-192.png" alt="App Icon" class="w-10 h-10 rounded-xl shadow-lg shadow-amber-900/30 border border-amber-500/40 object-cover" />
+        <div>
+          <div class="flex items-center gap-2">
+            <h1 class="text-base sm:text-lg font-bold tracking-tight text-stone-100">Personal Household Budget</h1>
+            <span id="storageBadge" class="text-[11px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+              IndexedDB Synced
+            </span>
+          </div>
+          <p class="text-xs text-stone-400">Bi-Weekly Pay ($1,482) &bull; Your Share &amp; Personal Expenses</p>
+        </div>
+      </div>
+
+      <!-- Mode & Split Preset Controls -->
+      <div class="flex flex-wrap items-center gap-2">
+        <!-- View Mode Toggle -->
+        <div class="inline-flex rounded-lg bg-stone-900 p-1 border border-stone-800" role="group">
+          <button id="btnModeMonthly" type="button" class="px-2.5 py-1 text-xs font-semibold rounded-md transition-all bg-amber-500 text-stone-950">
+            Standard Month (2x Pay)
+          </button>
+          <button id="btnModeNormalized" type="button" class="px-2.5 py-1 text-xs font-semibold rounded-md transition-all text-stone-400 hover:text-stone-200">
+            26-Pay Avg (2.17x)
+          </button>
+          <button id="btnModePaycheck" type="button" class="px-2.5 py-1 text-xs font-semibold rounded-md transition-all text-stone-400 hover:text-stone-200">
+            Per Paycheck
+          </button>
+        </div>
+
+        <!-- Install / Export / Import / Reset -->
+        <div class="flex items-center gap-1.5">
+          <button id="btnInstallApp" type="button" title="Add to Phone Home Screen" class="px-2.5 py-1.5 text-xs font-semibold rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 transition flex items-center gap-1">
+            <span>&#128241;</span> Install App
+          </button>
+          <button id="btnExportJson" type="button" title="Export Backup JSON" class="px-2.5 py-1.5 text-xs font-medium rounded-lg bg-stone-900 hover:bg-stone-800 text-stone-300 border border-stone-800 transition">
+            Export
+          </button>
+          <label for="inputImportJson" class="cursor-pointer px-2.5 py-1.5 text-xs font-medium rounded-lg bg-stone-900 hover:bg-stone-800 text-stone-300 border border-stone-800 transition">
+            Import
+          </label>
+          <input id="inputImportJson" type="file" accept=".json" class="hidden" />
+          <button id="btnOpenResetModal" type="button" class="px-2.5 py-1.5 text-xs font-medium rounded-lg bg-stone-900 hover:bg-rose-950/60 text-stone-400 hover:text-rose-300 border border-stone-800 transition">
+            Reset
+          </button>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 pt-6 space-y-6">
+
+    <!-- KPI Summary Row -->
+    <section class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <!-- Income Card -->
+      <div class="leather-card rounded-2xl p-4 sm:p-5 flex flex-col justify-between">
+        <div class="flex items-center justify-between">
+          <span id="lblIncomePeriod" class="text-xs font-semibold uppercase tracking-wider text-stone-400">Monthly Take-Home (2x Pay)</span>
+          <span class="w-8 h-8 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 font-bold text-sm">+</span>
+        </div>
+        <div class="mt-3">
+          <div id="valNetIncome" class="text-2xl sm:text-3xl font-extrabold text-stone-100">$2,964.00</div>
+          <div class="mt-1 flex items-center justify-between text-xs text-stone-400">
+            <span id="subIncomeDetail">$1,482.00 bi-weekly</span>
+            <button id="btnEditIncome" type="button" class="text-amber-400 hover:text-amber-300 font-medium underline">Edit Pay</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Fixed Bills (Your Share) -->
+      <div class="leather-card rounded-2xl p-4 sm:p-5 flex flex-col justify-between">
+        <div class="flex items-center justify-between">
+          <span class="text-xs font-semibold uppercase tracking-wider text-stone-400">Your Fixed Bills</span>
+          <span class="w-8 h-8 rounded-lg bg-rose-500/10 border border-rose-500/20 flex items-center justify-center text-rose-400 font-bold text-sm">&minus;</span>
+        </div>
+        <div class="mt-3">
+          <div id="valYourFixed" class="text-2xl sm:text-3xl font-extrabold text-rose-400">$1,116.50</div>
+          <div class="mt-1 flex items-center justify-between text-xs text-stone-400">
+            <span id="subFixedPercent">42.9% of income</span>
+            <span class="text-stone-500">Your out-of-pocket share</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Remaining After Bills & Flexible -->
+      <div class="leather-card rounded-2xl p-4 sm:p-5 flex flex-col justify-between">
+        <div class="flex items-center justify-between">
+          <span class="text-xs font-semibold uppercase tracking-wider text-stone-400">Remaining Free Cash</span>
+          <span class="w-8 h-8 rounded-lg bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400 font-bold text-sm">=</span>
+        </div>
+        <div class="mt-3">
+          <div id="valNetLeftover" class="text-2xl sm:text-3xl font-extrabold text-emerald-400">$567.50</div>
+          <div class="mt-1 flex items-center justify-between text-xs text-stone-400">
+            <span id="subAfterBillsOnly">After fixed: $1,693.50</span>
+            <span id="subVariableAllocated">Flex/Goals: $0.00</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Navigation Tabs -->
+    <nav class="flex flex-wrap items-center gap-2 border-b border-stone-800 pb-3">
+      <button data-tab="overview" class="tab-btn px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold transition bg-amber-500 text-stone-950 shadow">
+        1. Your Fixed Bills
+      </button>
+      <button data-tab="paycheck" class="tab-btn px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold transition bg-stone-900 text-stone-300 hover:bg-stone-800 border border-stone-800">
+        2. Bi-Weekly Paycheck Plan
+      </button>
+      <button data-tab="allocations" class="tab-btn px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold transition bg-stone-900 text-stone-300 hover:bg-stone-800 border border-stone-800">
+        3. Flexible Envelopes &amp; Spending Log
+      </button>
+    </nav>
+
+    <!-- TAB 1: OVERVIEW (Fixed Bills + Charts + Brother Split Settlement) -->
+    <div id="tab-overview" class="space-y-6">
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+
+        <!-- Left 7 Cols: Fixed Household Bills Table & Add Form -->
+        <div class="lg:col-span-7 space-y-4">
+          <div class="leather-card rounded-2xl p-5">
+            <div class="flex flex-wrap items-center justify-between gap-2 mb-4">
+              <div>
+                <h2 class="text-base font-bold text-stone-100">Core Household Bills</h2>
+                <p class="text-xs text-stone-400">Toggle <strong>50% Share</strong> vs <strong>100% Mine</strong> on any bill to reflect your out-of-pocket cost.</p>
+              </div>
+              <button id="btnToggleAddBill" type="button" class="px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-stone-950 font-semibold text-xs transition">
+                + Add Fixed Bill
+              </button>
+            </div>
+
+            <!-- Add Bill Inline Form -->
+            <form id="formAddBill" class="hidden mb-4 p-3.5 rounded-xl bg-stone-900/90 border border-stone-700 space-y-3">
+              <div class="grid grid-cols-1 sm:grid-cols-4 gap-2.5">
+                <div class="sm:col-span-2">
+                  <label class="block text-[11px] uppercase font-semibold text-stone-400 mb-1">Bill Name</label>
+                  <input id="inputBillName" type="text" required placeholder="e.g. Electric & Gas (LG&E)" class="w-full px-3 py-1.5 rounded-lg bg-stone-950 border border-stone-700 text-sm text-stone-100 focus:outline-none focus:border-amber-500" />
+                </div>
+                <div>
+                  <label class="block text-[11px] uppercase font-semibold text-stone-400 mb-1">Amount ($)</label>
+                  <input id="inputBillAmount" type="number" step="0.01" min="0" required placeholder="120.00" class="w-full px-3 py-1.5 rounded-lg bg-stone-950 border border-stone-700 text-sm text-stone-100 focus:outline-none focus:border-amber-500" />
+                </div>
+                <div>
+                  <label class="block text-[11px] uppercase font-semibold text-stone-400 mb-1">Frequency</label>
+                  <select id="inputBillFreq" class="w-full px-2.5 py-1.5 rounded-lg bg-stone-950 border border-stone-700 text-sm text-stone-100 focus:outline-none focus:border-amber-500">
+                    <option value="monthly">Monthly</option>
+                    <option value="biweekly">Bi-Weekly</option>
+                  </select>
+                </div>
+              </div>
+              <div class="flex flex-wrap items-center justify-between gap-2 pt-1">
+                <label class="inline-flex items-center gap-2 text-xs text-stone-300 cursor-pointer">
+                  <input id="inputBillSplit" type="checkbox" checked class="rounded bg-stone-950 border-stone-700 text-amber-500 focus:ring-amber-500" />
+                  <span>I pay 50% share (split bill)</span>
+                </label>
+                <div class="flex items-center gap-2">
+                  <button type="button" id="btnCancelAddBill" class="px-3 py-1 rounded-lg text-xs text-stone-400 hover:text-stone-200">Cancel</button>
+                  <button type="submit" class="px-3.5 py-1.5 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-stone-950 font-semibold text-xs">Save Bill</button>
+                </div>
+              </div>
+            </form>
+
+            <!-- Bills Table -->
+            <div class="overflow-x-auto custom-scroll">
+              <table class="w-full text-left border-collapse">
+                <thead>
+                  <tr class="border-b border-stone-800 text-[11px] uppercase tracking-wider text-stone-400">
+                    <th class="py-2.5 pr-2">Bill</th>
+                    <th class="py-2.5 px-2">Entered Rate</th>
+                    <th class="py-2.5 px-2">Your Share</th>
+                    <th class="py-2.5 px-2 text-right" id="thPeriodYourShare">Your Cost</th>
+                    <th class="py-2.5 pl-2 text-right"></th>
+                  </tr>
+                </thead>
+                <tbody id="tbodyBills" class="divide-y divide-stone-800/60 text-sm">
+                  <!-- Populated via JS -->
+                </tbody>
+                <tfoot>
+                  <tr class="border-t-2 border-stone-700 font-bold text-stone-100">
+                    <td class="pt-3 pr-2" colspan="3">Total Fixed Obligations</td>
+                    <td id="tfootYourShare" class="pt-3 px-2 text-right text-rose-400">$1,116.50</td>
+                    <td></td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Right 5 Cols: Doughnut Breakdown & Cash Flow Health -->
+        <div class="lg:col-span-5 space-y-4">
+          <div class="leather-card rounded-2xl p-5">
+            <div class="flex items-center justify-between mb-2">
+              <h2 class="text-base font-bold text-stone-100">Income Allocation Breakdown</h2>
+              <span id="chartModeLabel" class="text-xs text-amber-400 font-medium">Standard Month</span>
+            </div>
+            <p class="text-xs text-stone-400 mb-4">Visualizing your fixed share, flexible envelopes, and unallocated buffer.</p>
+            <div class="relative h-64">
+              <canvas id="budgetChart"></canvas>
+            </div>
+          </div>
+
+          <!-- 3-Paycheck Bonus Months Callout -->
+          <div class="leather-card rounded-2xl p-5 space-y-3">
+            <div class="flex items-center justify-between">
+              <h3 class="text-sm font-bold text-amber-400">Bi-Weekly Paycheck Advantage (26 Checks/Yr)</h3>
+              <span class="text-xs px-2 py-0.5 rounded bg-amber-500/15 text-amber-300 font-semibold">+$2,964 / yr extra</span>
+            </div>
+            <p class="text-xs text-stone-300 leading-relaxed">
+              Budgeting around <strong>2 paychecks per month ($2,964.00)</strong> covers all 12 months of bills while giving you <strong>two "3-paycheck" bonus months</strong> every year ($4,446.00 take-home in those months).
+            </p>
+            <div class="grid grid-cols-3 gap-2 pt-1 text-center">
+              <div class="p-2.5 rounded-xl bg-stone-900/90 border border-stone-800">
+                <div class="text-[11px] text-stone-400">2-Paycheck Month</div>
+                <div id="stat2PayMonth" class="text-sm font-bold text-stone-100 mt-0.5">$2,964.00</div>
+              </div>
+              <div class="p-2.5 rounded-xl bg-stone-900/90 border border-stone-800">
+                <div class="text-[11px] text-stone-400">26-Pay True Avg</div>
+                <div id="statAvgMonth" class="text-sm font-bold text-amber-400 mt-0.5">$3,211.00</div>
+              </div>
+              <div class="p-2.5 rounded-xl bg-stone-900/90 border border-stone-800">
+                <div class="text-[11px] text-stone-400">Annual Net Pay</div>
+                <div id="statAnnualPay" class="text-sm font-bold text-emerald-400 mt-0.5">$38,532.00</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- TAB 2: BI-WEEKLY PAYCHECK PLANNER -->
+    <div id="tab-paycheck" class="hidden space-y-6">
+      <div class="leather-card rounded-2xl p-5">
+        <div class="flex flex-wrap items-center justify-between gap-2 mb-4">
+          <div>
+            <h2 class="text-base font-bold text-stone-100">Bi-Weekly Paycheck Breakdown (<span id="lblPaycheckAmt">$1,482.00</span> per check)</h2>
+            <p class="text-xs text-stone-400">How to set aside money from Check #1 and Check #2 each month so no single check gets crushed by bills.</p>
+          </div>
+          <div class="inline-flex rounded-lg bg-stone-900 p-1 border border-stone-800">
+            <button id="btnPaySplitEven" type="button" class="px-3 py-1 text-xs font-semibold rounded-md bg-amber-500 text-stone-950">
+              Even 50/50 Per Check (Recommended)
+            </button>
+            <button id="btnPaySplitByDue" type="button" class="px-3 py-1 text-xs font-semibold rounded-md text-stone-400 hover:text-stone-200">
+              Check #1: Car Ins | Check #2: Utilities
+            </button>
+          </div>
+        </div>
+
+        <div id="paycheckCardsGrid" class="grid grid-cols-1 md:grid-cols-2 gap-5">
+          <!-- Populated by JS -->
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB 3: FLEXIBLE ENVELOPES & SPENDING LOG -->
+    <div id="tab-allocations" class="hidden space-y-6">
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+
+        <!-- Left 6 Cols: Flexible Monthly Envelopes (Groceries, Gas, Pet Care, Hobbies, Savings) -->
+        <div class="lg:col-span-6 leather-card rounded-2xl p-5 space-y-4">
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <h2 class="text-base font-bold text-stone-100">Flexible Monthly Targets &amp; Savings</h2>
+              <p class="text-xs text-stone-400">Adjust sliders or type targets for groceries, fuel, pet care, hobbies, and emergency savings.</p>
+            </div>
+            <button id="btnAddEnvelope" type="button" class="px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-stone-950 font-semibold text-xs transition">
+              + Add Category
+            </button>
+          </div>
+
+          <!-- New Category Form -->
+          <form id="formAddEnvelope" class="hidden p-3.5 rounded-xl bg-stone-900 border border-stone-700 space-y-3">
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+              <div class="sm:col-span-2">
+                <label class="block text-[11px] uppercase font-semibold text-stone-400 mb-1">Category Name</label>
+                <input id="inputEnvName" type="text" required placeholder="e.g. Home Maintenance Fund" class="w-full px-3 py-1.5 rounded-lg bg-stone-950 border border-stone-700 text-sm text-stone-100" />
+              </div>
+              <div>
+                <label class="block text-[11px] uppercase font-semibold text-stone-400 mb-1">Monthly Target ($)</label>
+                <input id="inputEnvTarget" type="number" step="5" min="0" required placeholder="150" class="w-full px-3 py-1.5 rounded-lg bg-stone-950 border border-stone-700 text-sm text-stone-100" />
+              </div>
+            </div>
+            <div class="flex justify-end gap-2">
+              <button type="button" id="btnCancelEnvelope" class="px-3 py-1 text-xs text-stone-400">Cancel</button>
+              <button type="submit" class="px-3 py-1.5 rounded-lg bg-emerald-500 text-stone-950 font-semibold text-xs">Add</button>
+            </div>
+          </form>
+
+          <div id="envelopesList" class="space-y-3">
+            <!-- Populated via JS -->
+          </div>
+        </div>
+
+        <!-- Right 6 Cols: Quick Expense Logger -->
+        <div class="lg:col-span-6 leather-card rounded-2xl p-5 space-y-4">
+          <div>
+            <h2 class="text-base font-bold text-stone-100">Quick Expense &amp; Payment Logger</h2>
+            <p class="text-xs text-stone-400">Log variable purchases against your flexible categories to track remaining monthly budget.</p>
+          </div>
+
+          <form id="formAddExpense" class="p-3.5 rounded-xl bg-stone-900/80 border border-stone-800 space-y-3">
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+              <div>
+                <label class="block text-[11px] uppercase font-semibold text-stone-400 mb-1">Description</label>
+                <input id="inputExpDesc" type="text" required placeholder="e.g. Kroger Groceries" class="w-full px-3 py-1.5 rounded-lg bg-stone-950 border border-stone-700 text-sm text-stone-100" />
+              </div>
+              <div>
+                <label class="block text-[11px] uppercase font-semibold text-stone-400 mb-1">Amount ($)</label>
+                <input id="inputExpAmt" type="number" step="0.01" min="0.01" required placeholder="64.50" class="w-full px-3 py-1.5 rounded-lg bg-stone-950 border border-stone-700 text-sm text-stone-100" />
+              </div>
+              <div>
+                <label class="block text-[11px] uppercase font-semibold text-stone-400 mb-1">Category</label>
+                <select id="selectExpCategory" class="w-full px-2.5 py-1.5 rounded-lg bg-stone-950 border border-stone-700 text-sm text-stone-100">
+                  <!-- Populated via JS -->
+                </select>
+              </div>
+            </div>
+            <div class="flex justify-end">
+              <button type="submit" class="px-4 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-stone-950 font-semibold text-xs transition">
+                + Log Expense
+              </button>
+            </div>
+          </form>
+
+          <div class="space-y-2 max-h-80 overflow-y-auto custom-scroll" id="expensesLogContainer">
+            <!-- Populated via JS -->
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+  </main>
+
+
+  <!-- Install on Phone (Samsung Galaxy S26+) Modal -->
+  <div id="modalInstall" class="fixed inset-0 z-50 hidden bg-black/75 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="leather-card gold-border rounded-2xl max-w-md w-full p-5 space-y-4">
+      <div class="flex items-center justify-between">
+        <h3 class="text-base font-bold text-stone-100">Add to Samsung Galaxy S26+ Home Screen</h3>
+        <button id="btnCloseInstallModal" type="button" class="text-stone-400 hover:text-stone-200 text-lg leading-none">&times;</button>
+      </div>
+      <div class="space-y-3 text-xs text-stone-300 leading-relaxed">
+        <p>
+          Android requires a web app to be opened from an <strong>HTTPS URL</strong> (like free GitHub Pages, Netlify Drop, or Vercel) to install as a full-screen standalone app:
+        </p>
+        <ol class="list-decimal list-inside space-y-1.5 text-stone-200">
+          <li>Download the <strong>household_budget_pwa.zip</strong> bundle and unzip it (or upload the unzipped folder to <strong>app.netlify.com/drop</strong> in 10 seconds).</li>
+          <li>Open that HTTPS link on your <strong>Galaxy S26+</strong> in <strong>Chrome</strong> or <strong>Samsung Internet</strong>.</li>
+          <li>Tap <strong>Install App</strong> here (or tap the browser menu <strong>&#8942;</strong> &rarr; <strong>Add to Home screen</strong> &rarr; <strong>Install</strong>).</li>
+        </ol>
+        <p class="text-[11px] text-stone-400">
+          Once installed, it launches full-screen without an address bar and saves all your bills and logged expenses offline in IndexedDB.
+        </p>
+      </div>
+      <div class="flex justify-end pt-1">
+        <button id="btnDoneInstallModal" type="button" class="px-4 py-1.5 rounded-lg bg-amber-500 text-stone-950 font-semibold text-xs">Got it</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Edit Pay Modal -->
+  <div id="modalIncome" class="fixed inset-0 z-50 hidden bg-black/75 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="leather-card gold-border rounded-2xl max-w-md w-full p-5 space-y-4">
+      <div class="flex items-center justify-between">
+        <h3 class="text-base font-bold text-stone-100">Update Bi-Weekly Paycheck</h3>
+        <button id="btnCloseIncomeModal" type="button" class="text-stone-400 hover:text-stone-200 text-sm">&times;</button>
+      </div>
+      <form id="formUpdateIncome" class="space-y-3">
+        <div>
+          <label class="block text-xs text-stone-400 mb-1">Bi-Weekly Net Take-Home Pay ($)</label>
+          <input id="inputBiweeklyPay" type="number" step="0.01" min="1" required class="w-full px-3 py-2 rounded-lg bg-stone-950 border border-stone-700 text-stone-100 font-semibold" />
+        </div>
+        <div class="flex justify-end gap-2 pt-2">
+          <button type="button" id="btnCancelIncomeModal" class="px-3 py-1.5 rounded-lg text-xs text-stone-400 hover:text-stone-200">Cancel</button>
+          <button type="submit" class="px-4 py-1.5 rounded-lg bg-amber-500 text-stone-950 font-semibold text-xs">Save Pay</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Reset Confirmation Modal -->
+  <div id="modalReset" class="fixed inset-0 z-50 hidden bg-black/75 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="leather-card rounded-2xl max-w-md w-full p-5 space-y-4 border border-rose-500/40">
+      <h3 class="text-base font-bold text-stone-100">Reset Household Budget to Defaults?</h3>
+      <p class="text-xs text-stone-300 leading-relaxed">
+        This will restore your default bi-weekly pay ($1,482), house payment ($500 bi-weekly), personal bi-weekly payment ($173 bi-weekly, 100% yours), car insurance ($406/mo), garbage ($45/mo), and internet ($90/mo) and clear logged variable expenses.
+      </p>
+      <div class="flex justify-end gap-2 pt-2">
+        <button id="btnCancelReset" type="button" class="px-3 py-1.5 rounded-lg text-xs text-stone-400 hover:text-stone-200">Cancel</button>
+        <button id="btnConfirmReset" type="button" class="px-4 py-1.5 rounded-lg bg-rose-500 hover:bg-rose-400 text-stone-950 font-semibold text-xs">Reset Data</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // --- DEFAULT STATE ---
+    function getDefaultState() {
+      return {
+        biweeklyPay: 1482,
+        viewMode: 'monthly', // 'monthly' (2 checks = $2,964), 'normalized' (26/12 checks = $3,211), 'paycheck' (1 check = $1,482)
+        paycheckStrategy: 'even', // 'even' or 'byDue'
+        activePreset: 'splitAll',
+        bills: [
+          {
+            id: 'bill-house',
+            name: 'House Payment',
+            amount: 500,
+            frequency: 'biweekly', // $1,000 standard month / $1,083.33 normalized
+            splitWithBrother: true, // User stated "I split these with my brother" - easily toggled via preset or row button
+            brotherPaidThisMonth: false
+          },
+          {
+            id: 'bill-car-ins',
+            name: 'Car Insurance',
+            amount: 406,
+            frequency: 'monthly',
+            splitWithBrother: true,
+            brotherPaidThisMonth: false
+          },
+          {
+            id: 'bill-garbage',
+            name: 'Garbage Service',
+            amount: 45,
+            frequency: 'monthly',
+            splitWithBrother: true,
+            brotherPaidThisMonth: false
+          },
+          {
+            id: 'bill-internet',
+            name: 'Internet Bill',
+            amount: 90,
+            frequency: 'monthly',
+            splitWithBrother: true,
+            brotherPaidThisMonth: false
+          },
+          {
+            id: 'bill-personal-173',
+            name: 'Personal Bi-Weekly Payment',
+            amount: 173,
+            frequency: 'biweekly',
+            splitWithBrother: false,
+            personalOnly: true,
+            brotherPaidThisMonth: false
+          }
+        ],
+        envelopes: [
+          { id: 'env-groceries', name: 'Groceries & Household Supplies', monthlyTarget: 400, color: '#10b981' },
+          { id: 'env-gas', name: 'Gas & Auto Fuel', monthlyTarget: 160, color: '#38bdf8' },
+          { id: 'env-pet', name: 'Pet Care & Supplies (Josie)', monthlyTarget: 120, color: '#a855f7' },
+          { id: 'env-hobbies', name: 'Hobbies, Gaming & Dining Out', monthlyTarget: 200, color: '#f59e0b' },
+          { id: 'env-savings', name: 'Emergency & Home Projects Savings', monthlyTarget: 400, color: '#ec4899' }
+        ],
+        expenses: []
+      };
+    }
+
+    let appState = getDefaultState();
+    let budgetChartInstance = null;
+
+    // --- INDEXEDDB + LOCALSTORAGE PERSISTENCE ---
+    const DB_NAME = 'HouseholdBudgetDB';
+    const DB_VERSION = 1;
+    const STORE_NAME = 'budgetState';
+
+    function openBudgetDB() {
+      return new Promise((resolve, reject) => {
+        if (!window.indexedDB) {
+          reject(new Error('IndexedDB unavailable'));
+          return;
+        }
+        const req = indexedDB.open(DB_NAME, DB_VERSION);
+        req.onupgradeneeded = (e) => {
+          const db = e.target.result;
+          if (!db.objectStoreNames.contains(STORE_NAME)) {
+            db.createObjectStore(STORE_NAME);
+          }
+        };
+        req.onsuccess = () => resolve(req.result);
+        req.onerror = () => reject(req.error);
+      });
+    }
+
+    function ensurePersonal173Bill() {
+      if (!appState.bills.some((b) => b.id === 'bill-personal-173' || (Number(b.amount) === 173 && b.frequency === 'biweekly'))) {
+        appState.bills.push({
+          id: 'bill-personal-173',
+          name: 'Personal Bi-Weekly Payment',
+          amount: 173,
+          frequency: 'biweekly',
+          splitWithBrother: false,
+          personalOnly: true,
+          brotherPaidThisMonth: false
+        });
+      }
+    }
+
+    async function loadStateFromStorage() {
+      try {
+        const db = await openBudgetDB();
+        const tx = db.transaction(STORE_NAME, 'readonly');
+        const store = tx.objectStore(STORE_NAME);
+        const req = store.get('current');
+        const saved = await new Promise((res, rej) => {
+          req.onsuccess = () => res(req.result);
+          req.onerror = () => rej(req.error);
+        });
+        if (saved && typeof saved === 'object' && Array.isArray(saved.bills)) {
+          appState = Object.assign(getDefaultState(), saved);
+          ensurePersonal173Bill();
+          return;
+        }
+      } catch (err) {
+        // Fallback to localStorage
+      }
+      try {
+        const raw = localStorage.getItem('household_budget_state_v1');
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (parsed && Array.isArray(parsed.bills)) {
+            appState = Object.assign(getDefaultState(), parsed);
+            ensurePersonal173Bill();
+          }
+        }
+      } catch (e) {
+        // ignore sandbox storage error
+      }
+    }
+
+    async function saveStateToStorage(toastText) {
+      try {
+        localStorage.setItem('household_budget_state_v1', JSON.stringify(appState));
+      } catch (e) {}
+      try {
+        const db = await openBudgetDB();
+        const tx = db.transaction(STORE_NAME, 'readwrite');
+        tx.objectStore(STORE_NAME).put(appState, 'current');
+      } catch (e) {}
+      if (toastText) {
+        showToast(toastText);
+      }
+    }
+
+    function showToast(message) {
+      const toast = document.getElementById('toast');
+      const msg = document.getElementById('toastMsg');
+      if (!toast || !msg) return;
+      msg.textContent = message;
+      toast.classList.remove('hidden', 'translate-y-2', 'opacity-0');
+      clearTimeout(window.__toastTimer);
+      window.__toastTimer = setTimeout(() => {
+        toast.classList.add('translate-y-2', 'opacity-0');
+        setTimeout(() => toast.classList.add('hidden'), 300);
+      }, 2200);
+    }
+
+    // --- FINANCIAL MATH HELPERS ---
+    function fmtCurrency(val) {
+      const num = Number(val) || 0;
+      const sign = num < 0 ? '-' : '';
+      return sign + '$' + Math.abs(num).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+
+    // Convert a bill's base amount to the current active view period (Standard Month = 2x biweekly, Normalized = 26/12x biweekly, Paycheck = 0.5x monthly)
+    function getBillGrossForPeriod(bill, mode) {
+      const amt = Number(bill.amount) || 0;
+      if (mode === 'paycheck') {
+        return bill.frequency === 'biweekly' ? amt : amt / 2;
+      }
+      if (mode === 'normalized') {
+        return bill.frequency === 'biweekly' ? (amt * 26) / 12 : amt;
+      }
+      // 'monthly' (standard 2-paycheck month)
+      return bill.frequency === 'biweekly' ? amt * 2 : amt;
+    }
+
+    function getIncomeForPeriod(mode) {
+      const bw = Number(appState.biweeklyPay) || 0;
+      if (mode === 'paycheck') return bw;
+      if (mode === 'normalized') return (bw * 26) / 12;
+      return bw * 2;
+    }
+
+    function getEnvelopeTargetForPeriod(env, mode) {
+      const m = Number(env.monthlyTarget) || 0;
+      if (mode === 'paycheck') return m / 2;
+      return m;
+    }
+
+    function calculateTotals() {
+      const mode = appState.viewMode;
+      const income = getIncomeForPeriod(mode);
+      let grossBills = 0;
+      let yourFixed = 0;
+      let brotherFixed = 0;
+
+      appState.bills.forEach((b) => {
+        const gross = getBillGrossForPeriod(b, mode);
+        const yours = b.splitWithBrother ? gross * 0.5 : gross;
+        const bros = b.splitWithBrother ? gross * 0.5 : 0;
+        grossBills += gross;
+        yourFixed += yours;
+        brotherFixed += bros;
+      });
+
+      let totalEnvelopes = 0;
+      appState.envelopes.forEach((env) => {
+        totalEnvelopes += getEnvelopeTargetForPeriod(env, mode);
+      });
+
+      let totalLoggedExpenses = 0;
+      appState.expenses.forEach((exp) => {
+        totalLoggedExpenses += Number(exp.amount) || 0;
+      });
+
+      const afterFixed = income - yourFixed;
+      const unallocatedBuffer = afterFixed - totalEnvelopes;
+
+      return {
+        income,
+        grossBills,
+        yourFixed,
+        brotherFixed,
+        afterFixed,
+        totalEnvelopes,
+        totalLoggedExpenses,
+        unallocatedBuffer
+      };
+    }
+
+    // --- UI RENDERING ---
+    function renderAll() {
+      const totals = calculateTotals();
+      const mode = appState.viewMode;
+
+      // Update Mode Buttons
+      const modeMap = {
+        monthly: document.getElementById('btnModeMonthly'),
+        normalized: document.getElementById('btnModeNormalized'),
+        paycheck: document.getElementById('btnModePaycheck')
+      };
+      Object.keys(modeMap).forEach((k) => {
+        const btn = modeMap[k];
+        if (!btn) return;
+        if (k === mode) {
+          btn.className = 'px-2.5 py-1 text-xs font-semibold rounded-md transition-all bg-amber-500 text-stone-950';
+        } else {
+          btn.className = 'px-2.5 py-1 text-xs font-semibold rounded-md transition-all text-stone-400 hover:text-stone-200';
+        }
+      });
+
+
+
+      // KPI Cards
+      const periodLabels = {
+        monthly: 'Monthly Take-Home (2x Pay)',
+        normalized: 'Avg Monthly Pay (26 Checks/12)',
+        paycheck: 'Single Bi-Weekly Paycheck'
+      };
+      document.getElementById('lblIncomePeriod').textContent = periodLabels[mode];
+      document.getElementById('chartModeLabel').textContent = periodLabels[mode];
+      document.getElementById('valNetIncome').textContent = fmtCurrency(totals.income);
+      document.getElementById('subIncomeDetail').textContent = `${fmtCurrency(appState.biweeklyPay)} bi-weekly`;
+
+      document.getElementById('valYourFixed').textContent = fmtCurrency(totals.yourFixed);
+      const fixedPct = totals.income > 0 ? ((totals.yourFixed / totals.income) * 100).toFixed(1) : '0.0';
+      document.getElementById('subFixedPercent').textContent = `${fixedPct}% of income`;
+
+
+      document.getElementById('valNetLeftover').textContent = fmtCurrency(totals.unallocatedBuffer);
+      document.getElementById('valNetLeftover').className =
+        'text-2xl sm:text-3xl font-extrabold ' + (totals.unallocatedBuffer >= 0 ? 'text-emerald-400' : 'text-rose-400');
+      document.getElementById('subAfterBillsOnly').textContent = `After fixed: ${fmtCurrency(totals.afterFixed)}`;
+      document.getElementById('subVariableAllocated').textContent = `Flex targets: ${fmtCurrency(totals.totalEnvelopes)}`;
+
+      // 3-Paycheck Bonus Card
+      document.getElementById('stat2PayMonth').textContent = fmtCurrency(appState.biweeklyPay * 2);
+      document.getElementById('statAvgMonth').textContent = fmtCurrency((appState.biweeklyPay * 26) / 12);
+      document.getElementById('statAnnualPay').textContent = fmtCurrency(appState.biweeklyPay * 26);
+
+      renderBillsTable(totals);
+      renderBudgetChart(totals);
+      renderPaycheckPlanner();
+      renderEnvelopesAndExpenses(totals);
+    }
+
+    function renderBillsTable(totals) {
+      const tbody = document.getElementById('tbodyBills');
+      tbody.innerHTML = '';
+
+      appState.bills.forEach((bill) => {
+        const gross = getBillGrossForPeriod(bill, appState.viewMode);
+        const yours = bill.splitWithBrother ? gross * 0.5 : gross;
+        const bros = bill.splitWithBrother ? gross * 0.5 : 0;
+
+        const tr = document.createElement('tr');
+        tr.className = 'hover:bg-stone-900/50 transition';
+        tr.innerHTML = `
+          <td class="py-3 pr-2 font-medium text-stone-100">
+            <div>${escapeHtml(bill.name)}</div>
+            <div class="text-[11px] text-stone-400">${bill.frequency === 'biweekly' ? 'Bi-Weekly ($' + Number(bill.amount).toFixed(2) + ' × 2/mo)' : 'Monthly Fixed'}</div>
+          </td>
+          <td class="py-3 px-2 text-stone-300">
+            <div class="flex items-center gap-1">
+              <span class="text-xs text-stone-400">$</span>
+              <input data-action="edit-bill-amount" data-id="${bill.id}" type="number" step="0.01" min="0" value="${Number(bill.amount)}"
+                class="w-20 px-2 py-1 rounded bg-stone-950 border border-stone-700 text-xs font-semibold text-stone-100 focus:border-amber-500 focus:outline-none" />
+              <span class="text-[11px] text-stone-400">/${bill.frequency === 'biweekly' ? '2wk' : 'mo'}</span>
+            </div>
+          </td>
+          <td class="py-3 px-2">
+            <button data-action="toggle-bill-split" data-id="${bill.id}" type="button"
+              class="px-2.5 py-1 rounded-lg text-xs font-semibold border transition ${
+                bill.splitWithBrother
+                  ? 'bg-sky-500/15 text-sky-300 border-sky-500/40 hover:bg-sky-500/25'
+                  : 'bg-stone-900 text-stone-300 border-stone-700 hover:bg-stone-800'
+              }">
+              ${bill.splitWithBrother ? '50% Share' : '100% Mine'}
+            </button>
+          </td>
+          <td class="py-3 px-2 text-right font-bold text-rose-300">${fmtCurrency(yours)}</td>
+          <td class="py-3 pl-2 text-right">
+            <button data-action="delete-bill" data-id="${bill.id}" type="button" title="Remove bill" class="text-stone-500 hover:text-rose-400 text-xs px-1.5 py-0.5">&times;</button>
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
+
+      document.getElementById('tfootYourShare').textContent = fmtCurrency(totals.yourFixed);
+    }
+
+    function renderBudgetChart(totals) {
+      const ctx = document.getElementById('budgetChart');
+      if (!ctx) return;
+
+      const labels = ['Your Fixed Bills'];
+      const data = [Math.max(0, Number(totals.yourFixed.toFixed(2)))];
+      const colors = ['#f43f5e'];
+
+      appState.envelopes.forEach((env) => {
+        const val = getEnvelopeTargetForPeriod(env, appState.viewMode);
+        if (val > 0) {
+          labels.push(env.name);
+          data.push(Number(val.toFixed(2)));
+          colors.push(env.color || '#f59e0b');
+        }
+      });
+
+      if (totals.unallocatedBuffer > 0) {
+        labels.push('Unallocated Free Cash');
+        data.push(Number(totals.unallocatedBuffer.toFixed(2)));
+        colors.push('#34d399');
+      }
+
+      if (budgetChartInstance) {
+        budgetChartInstance.data.labels = labels;
+        budgetChartInstance.data.datasets[0].data = data;
+        budgetChartInstance.data.datasets[0].backgroundColor = colors;
+        budgetChartInstance.update();
+        return;
+      }
+
+      budgetChartInstance = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+          labels,
+          datasets: [
+            {
+              data,
+              backgroundColor: colors,
+              borderColor: '#141210',
+              borderWidth: 2,
+              hoverOffset: 6
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          cutout: '64%',
+          plugins: {
+            legend: {
+              position: 'bottom',
+              labels: {
+                color: '#d6d3d1',
+                font: { family: 'Inter', size: 11 },
+                boxWidth: 10,
+                padding: 10
+              }
+            },
+            tooltip: {
+              callbacks: {
+                label: function (context) {
+                  const val = context.parsed || 0;
+                  const pct = totals.income > 0 ? ((val / totals.income) * 100).toFixed(1) : '0.0';
+                  return ` ${context.label}: ${fmtCurrency(val)} (${pct}%)`;
+                }
+              }
+            }
+          }
+        }
+      });
+    }
+
+    function renderPaycheckPlanner() {
+      document.getElementById('lblPaycheckAmt').textContent = fmtCurrency(appState.biweeklyPay);
+      const grid = document.getElementById('paycheckCardsGrid');
+      grid.innerHTML = '';
+
+      const btnEven = document.getElementById('btnPaySplitEven');
+      const btnByDue = document.getElementById('btnPaySplitByDue');
+      if (appState.paycheckStrategy === 'even') {
+        btnEven.className = 'px-3 py-1 text-xs font-semibold rounded-md bg-amber-500 text-stone-950';
+        btnByDue.className = 'px-3 py-1 text-xs font-semibold rounded-md text-stone-400 hover:text-stone-200';
+      } else {
+        btnByDue.className = 'px-3 py-1 text-xs font-semibold rounded-md bg-amber-500 text-stone-950';
+        btnEven.className = 'px-3 py-1 text-xs font-semibold rounded-md text-stone-400 hover:text-stone-200';
+      }
+
+      const check1Items = [];
+      const check2Items = [];
+
+      appState.bills.forEach((bill) => {
+        const monthlyGross = getBillGrossForPeriod(bill, 'monthly');
+        const yourMonthly = bill.splitWithBrother ? monthlyGross * 0.5 : monthlyGross;
+
+        if (appState.paycheckStrategy === 'even' || bill.frequency === 'biweekly') {
+          check1Items.push({ name: bill.name, amount: yourMonthly / 2, note: bill.frequency === 'biweekly' ? 'Bi-weekly payment' : 'Half of monthly bill' });
+          check2Items.push({ name: bill.name, amount: yourMonthly / 2, note: bill.frequency === 'biweekly' ? 'Bi-weekly payment' : 'Half of monthly bill' });
+        } else {
+          // By due date grouping: Check 1 covers Car Insurance, Check 2 covers Garbage + Internet + others
+          if (bill.name.toLowerCase().includes('insurance')) {
+            check1Items.push({ name: bill.name, amount: yourMonthly, note: 'Full monthly share in Check #1' });
+          } else {
+            check2Items.push({ name: bill.name, amount: yourMonthly, note: 'Full monthly share in Check #2' });
+          }
+        }
+      });
+
+      const envPerCheck = appState.envelopes.reduce((acc, e) => acc + (Number(e.monthlyTarget) || 0) / 2, 0);
+
+      [
+        { title: 'Paycheck #1 (First Bi-Weekly Check)', items: check1Items },
+        { title: 'Paycheck #2 (Second Bi-Weekly Check)', items: check2Items }
+      ].forEach((check) => {
+        const fixedSum = check.items.reduce((a, b) => a + b.amount, 0);
+        const leftAfterFixed = appState.biweeklyPay - fixedSum;
+        const leftAfterFlex = leftAfterFixed - envPerCheck;
+
+        const div = document.createElement('div');
+        div.className = 'p-4 rounded-xl bg-stone-900/90 border border-stone-800 space-y-3';
+        const rowsHtml = check.items
+          .map(
+            (i) => `
+          <div class="flex items-center justify-between text-xs py-1.5 border-b border-stone-800/70">
+            <div>
+              <span class="font-medium text-stone-200">${escapeHtml(i.name)}</span>
+              <span class="text-[11px] text-stone-400 block">${escapeHtml(i.note)}</span>
+            </div>
+            <span class="font-semibold text-rose-300">${fmtCurrency(i.amount)}</span>
+          </div>
+        `
+          )
+          .join('');
+
+        div.innerHTML = `
+          <div class="flex items-center justify-between border-b border-stone-700 pb-2.5">
+            <h3 class="text-sm font-bold text-amber-400">${check.title}</h3>
+            <span class="text-sm font-extrabold text-stone-100">${fmtCurrency(appState.biweeklyPay)}</span>
+          </div>
+          <div class="space-y-1">${rowsHtml}</div>
+          <div class="pt-2 space-y-1.5 text-xs">
+            <div class="flex justify-between text-stone-300">
+              <span>Fixed Bills Set-Aside:</span>
+              <span class="font-bold text-rose-400">${fmtCurrency(fixedSum)}</span>
+            </div>
+            <div class="flex justify-between text-stone-300">
+              <span>Remaining After Fixed Bills:</span>
+              <span class="font-bold text-emerald-400">${fmtCurrency(leftAfterFixed)}</span>
+            </div>
+            <div class="flex justify-between text-stone-400">
+              <span>Half of Monthly Flex Envelopes:</span>
+              <span>${fmtCurrency(envPerCheck)}</span>
+            </div>
+            <div class="flex justify-between pt-1.5 border-t border-stone-800 text-sm font-bold">
+              <span class="text-stone-200">Unallocated Check Buffer:</span>
+              <span class="${leftAfterFlex >= 0 ? 'text-amber-400' : 'text-rose-400'}">${fmtCurrency(leftAfterFlex)}</span>
+            </div>
+          </div>
+        `;
+        grid.appendChild(div);
+      });
+    }
+
+    function renderEnvelopesAndExpenses() {
+      const list = document.getElementById('envelopesList');
+      const select = document.getElementById('selectExpCategory');
+      list.innerHTML = '';
+      select.innerHTML = '';
+
+      // Compute spent per category
+      const spentByCat = {};
+      appState.expenses.forEach((exp) => {
+        spentByCat[exp.categoryId] = (spentByCat[exp.categoryId] || 0) + (Number(exp.amount) || 0);
+      });
+
+      appState.envelopes.forEach((env) => {
+        const opt = document.createElement('option');
+        opt.value = env.id;
+        opt.textContent = env.name;
+        select.appendChild(opt);
+
+        const target = Number(env.monthlyTarget) || 0;
+        const spent = spentByCat[env.id] || 0;
+        const remaining = target - spent;
+        const pct = target > 0 ? Math.min(100, Math.round((spent / target) * 100)) : 0;
+
+        const item = document.createElement('div');
+        item.className = 'p-3.5 rounded-xl bg-stone-900/80 border border-stone-800 space-y-2';
+        item.innerHTML = `
+          <div class="flex items-center justify-between gap-2">
+            <div class="flex items-center gap-2">
+              <span class="w-3 h-3 rounded-full" style="background:${env.color || '#f59e0b'}"></span>
+              <span class="text-xs sm:text-sm font-semibold text-stone-100">${escapeHtml(env.name)}</span>
+            </div>
+            <div class="flex items-center gap-2">
+              <span class="text-xs text-stone-400">Target: $</span>
+              <input data-action="edit-env-target" data-id="${env.id}" type="number" step="10" min="0" value="${target}"
+                class="w-20 px-2 py-1 rounded bg-stone-950 border border-stone-700 text-xs font-bold text-amber-400 focus:outline-none" />
+              <button data-action="delete-env" data-id="${env.id}" type="button" class="text-stone-500 hover:text-rose-400 text-xs px-1">&times;</button>
+            </div>
+          </div>
+          <input data-action="slider-env-target" data-id="${env.id}" type="range" min="0" max="1200" step="10" value="${target}"
+            class="w-full accent-amber-500 cursor-pointer h-1.5 bg-stone-800 rounded-lg" />
+          <div class="flex items-center justify-between text-[11px] text-stone-400">
+            <span>Logged Spent: <strong class="text-stone-200">${fmtCurrency(spent)}</strong> (${pct}%)</span>
+            <span>Remaining: <strong class="${remaining >= 0 ? 'text-emerald-400' : 'text-rose-400'}">${fmtCurrency(remaining)}</strong> (${fmtCurrency(target / 2)}/check)</span>
+          </div>
+        `;
+        list.appendChild(item);
+      });
+
+      const expContainer = document.getElementById('expensesLogContainer');
+      expContainer.innerHTML = '';
+      if (appState.expenses.length === 0) {
+        expContainer.innerHTML = `<div class="text-xs text-stone-400 py-6 text-center border border-dashed border-stone-800 rounded-xl">No flexible expenses logged yet this month. Use the form above to record groceries, fuel, or hobby purchases.</div>`;
+        return;
+      }
+
+      appState.expenses
+        .slice()
+        .reverse()
+        .forEach((exp) => {
+          const cat = appState.envelopes.find((e) => e.id === exp.categoryId);
+          const row = document.createElement('div');
+          row.className = 'flex items-center justify-between p-2.5 rounded-lg bg-stone-900 border border-stone-800 text-xs';
+          row.innerHTML = `
+            <div>
+              <div class="font-semibold text-stone-200">${escapeHtml(exp.description)}</div>
+              <div class="text-[11px] text-stone-400">${escapeHtml(cat ? cat.name : 'General')} &bull; ${escapeHtml(exp.date)}</div>
+            </div>
+            <div class="flex items-center gap-3">
+              <span class="font-bold text-rose-300">-${fmtCurrency(exp.amount)}</span>
+              <button data-action="delete-expense" data-id="${exp.id}" type="button" class="text-stone-500 hover:text-rose-400">&times;</button>
+            </div>
+          `;
+          expContainer.appendChild(row);
+        });
+    }
+
+    function escapeHtml(str) {
+      return String(str || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+    }
+
+    // --- EVENT HANDLERS ---
+    function setupEvents() {
+      // View Mode buttons
+      document.getElementById('btnModeMonthly').addEventListener('click', () => {
+        appState.viewMode = 'monthly';
+        renderAll();
+        saveStateToStorage();
+      });
+      document.getElementById('btnModeNormalized').addEventListener('click', () => {
+        appState.viewMode = 'normalized';
+        renderAll();
+        saveStateToStorage();
+      });
+      document.getElementById('btnModePaycheck').addEventListener('click', () => {
+        appState.viewMode = 'paycheck';
+        renderAll();
+        saveStateToStorage();
+      });
+
+
+
+      // Navigation Tabs
+      document.querySelectorAll('.tab-btn').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          const target = btn.dataset.tab;
+          document.querySelectorAll('.tab-btn').forEach((b) => {
+            b.className =
+              b === btn
+                ? 'tab-btn px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold transition bg-amber-500 text-stone-950 shadow'
+                : 'tab-btn px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold transition bg-stone-900 text-stone-300 hover:bg-stone-800 border border-stone-800';
+          });
+          ['overview', 'paycheck', 'allocations'].forEach((t) => {
+            document.getElementById('tab-' + t).classList.toggle('hidden', t !== target);
+          });
+        });
+      });
+
+      // Bills Table Delegation
+      document.getElementById('tbodyBills').addEventListener('click', (e) => {
+        const btn = e.target.closest('button[data-action]');
+        if (!btn) return;
+        const id = btn.dataset.id;
+        const action = btn.dataset.action;
+        if (action === 'toggle-bill-split') {
+          const bill = appState.bills.find((b) => b.id === id);
+          if (bill) {
+            bill.splitWithBrother = !bill.splitWithBrother;
+            appState.activePreset = 'custom';
+            renderAll();
+            saveStateToStorage('Updated bill split');
+          }
+        } else if (action === 'delete-bill') {
+          appState.bills = appState.bills.filter((b) => b.id !== id);
+          renderAll();
+          saveStateToStorage('Removed bill');
+        }
+      });
+
+      document.getElementById('tbodyBills').addEventListener('change', (e) => {
+        const input = e.target.closest('input[data-action="edit-bill-amount"]');
+        if (!input) return;
+        const bill = appState.bills.find((b) => b.id === input.dataset.id);
+        if (bill) {
+          bill.amount = Math.max(0, parseFloat(input.value) || 0);
+          renderAll();
+          saveStateToStorage('Updated bill amount');
+        }
+      });
+
+      // Add Fixed Bill Form
+      const formAddBill = document.getElementById('formAddBill');
+      document.getElementById('btnToggleAddBill').addEventListener('click', () => {
+        formAddBill.classList.toggle('hidden');
+      });
+      document.getElementById('btnCancelAddBill').addEventListener('click', () => {
+        formAddBill.classList.add('hidden');
+      });
+      formAddBill.addEventListener('submit', (e) => {
+        e.preventDefault();
+        const name = document.getElementById('inputBillName').value.trim();
+        const amount = parseFloat(document.getElementById('inputBillAmount').value) || 0;
+        const frequency = document.getElementById('inputBillFreq').value;
+        const splitWithBrother = document.getElementById('inputBillSplit').checked;
+        if (!name) return;
+        appState.bills.push({
+          id: 'bill-' + Date.now(),
+          name,
+          amount,
+          frequency,
+          splitWithBrother,
+          brotherPaidThisMonth: false
+        });
+        formAddBill.reset();
+        document.getElementById('inputBillSplit').checked = true;
+        formAddBill.classList.add('hidden');
+        renderAll();
+        saveStateToStorage('Added fixed bill');
+      });
+
+      // Paycheck Strategy Toggle
+      document.getElementById('btnPaySplitEven').addEventListener('click', () => {
+        appState.paycheckStrategy = 'even';
+        renderAll();
+        saveStateToStorage();
+      });
+      document.getElementById('btnPaySplitByDue').addEventListener('click', () => {
+        appState.paycheckStrategy = 'byDue';
+        renderAll();
+        saveStateToStorage();
+      });
+
+      // Envelopes Delegation
+      const envList = document.getElementById('envelopesList');
+      envList.addEventListener('input', (e) => {
+        const target = e.target;
+        if (target.dataset.action === 'slider-env-target' || target.dataset.action === 'edit-env-target') {
+          const env = appState.envelopes.find((x) => x.id === target.dataset.id);
+          if (env) {
+            env.monthlyTarget = Math.max(0, parseFloat(target.value) || 0);
+            renderAll();
+            saveStateToStorage();
+          }
+        }
+      });
+      envList.addEventListener('click', (e) => {
+        const btn = e.target.closest('button[data-action="delete-env"]');
+        if (!btn) return;
+        appState.envelopes = appState.envelopes.filter((x) => x.id !== btn.dataset.id);
+        renderAll();
+        saveStateToStorage('Removed category');
+      });
+
+      // Add Envelope Form
+      const formEnv = document.getElementById('formAddEnvelope');
+      document.getElementById('btnAddEnvelope').addEventListener('click', () => formEnv.classList.toggle('hidden'));
+      document.getElementById('btnCancelEnvelope').addEventListener('click', () => formEnv.classList.add('hidden'));
+      formEnv.addEventListener('submit', (e) => {
+        e.preventDefault();
+        const name = document.getElementById('inputEnvName').value.trim();
+        const monthlyTarget = parseFloat(document.getElementById('inputEnvTarget').value) || 0;
+        if (!name) return;
+        const palette = ['#f59e0b', '#10b981', '#38bdf8', '#a855f7', '#ec4899', '#eab308'];
+        appState.envelopes.push({
+          id: 'env-' + Date.now(),
+          name,
+          monthlyTarget,
+          color: palette[appState.envelopes.length % palette.length]
+        });
+        formEnv.reset();
+        formEnv.classList.add('hidden');
+        renderAll();
+        saveStateToStorage('Added budget category');
+      });
+
+      // Log Expense Form
+      document.getElementById('formAddExpense').addEventListener('submit', (e) => {
+        e.preventDefault();
+        const description = document.getElementById('inputExpDesc').value.trim();
+        const amount = parseFloat(document.getElementById('inputExpAmt').value) || 0;
+        const categoryId = document.getElementById('selectExpCategory').value;
+        if (!description || amount <= 0) return;
+        const today = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+        appState.expenses.push({
+          id: 'exp-' + Date.now(),
+          description,
+          amount,
+          categoryId,
+          date: today
+        });
+        document.getElementById('formAddExpense').reset();
+        renderAll();
+        saveStateToStorage('Logged expense');
+      });
+
+      document.getElementById('expensesLogContainer').addEventListener('click', (e) => {
+        const btn = e.target.closest('button[data-action="delete-expense"]');
+        if (!btn) return;
+        appState.expenses = appState.expenses.filter((x) => x.id !== btn.dataset.id);
+        renderAll();
+        saveStateToStorage('Removed expense');
+      });
+
+      // Edit Income Modal
+      const modalIncome = document.getElementById('modalIncome');
+      document.getElementById('btnEditIncome').addEventListener('click', () => {
+        document.getElementById('inputBiweeklyPay').value = appState.biweeklyPay;
+        modalIncome.classList.remove('hidden');
+      });
+      const closeIncome = () => modalIncome.classList.add('hidden');
+      document.getElementById('btnCloseIncomeModal').addEventListener('click', closeIncome);
+      document.getElementById('btnCancelIncomeModal').addEventListener('click', closeIncome);
+      document.getElementById('formUpdateIncome').addEventListener('submit', (e) => {
+        e.preventDefault();
+        const val = parseFloat(document.getElementById('inputBiweeklyPay').value);
+        if (val > 0) {
+          appState.biweeklyPay = val;
+          closeIncome();
+          renderAll();
+          saveStateToStorage('Updated bi-weekly income');
+        }
+      });
+
+      // Reset Modal
+      const modalReset = document.getElementById('modalReset');
+      document.getElementById('btnOpenResetModal').addEventListener('click', () => modalReset.classList.remove('hidden'));
+      document.getElementById('btnCancelReset').addEventListener('click', () => modalReset.classList.add('hidden'));
+      document.getElementById('btnConfirmReset').addEventListener('click', () => {
+        appState = getDefaultState();
+        modalReset.classList.add('hidden');
+        renderAll();
+        saveStateToStorage('Reset budget to defaults');
+      });
+
+      // Export / Import JSON
+      document.getElementById('btnExportJson').addEventListener('click', () => {
+        const blob = new Blob([JSON.stringify(appState, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'household_budget_backup.json';
+        a.click();
+        URL.revokeObjectURL(url);
+        showToast('Exported JSON backup');
+      });
+
+      document.getElementById('inputImportJson').addEventListener('change', (e) => {
+        const file = e.target.files && e.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+          try {
+            const data = JSON.parse(ev.target.result);
+            if (data && Array.isArray(data.bills)) {
+              appState = Object.assign(getDefaultState(), data);
+              renderAll();
+              saveStateToStorage('Imported budget backup');
+            }
+          } catch (err) {
+            showToast('Invalid JSON file');
+          }
+        };
+        reader.readAsText(file);
+      });
+    }
+
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./sw.js').catch(() => {});
+      });
+    }
+
+    // --- PWA INSTALL HANDLER ---
+    let deferredInstallPrompt = null;
+    window.addEventListener('beforeinstallprompt', (e) => {
+      e.preventDefault();
+      deferredInstallPrompt = e;
+    });
+
+    function setupInstallUI() {
+      const btn = document.getElementById('btnInstallApp');
+      const modal = document.getElementById('modalInstall');
+      const closeBtn = document.getElementById('btnCloseInstallModal');
+      const doneBtn = document.getElementById('btnDoneInstallModal');
+      if (btn) {
+        btn.addEventListener('click', async () => {
+          if (deferredInstallPrompt) {
+            deferredInstallPrompt.prompt();
+            const choice = await deferredInstallPrompt.userChoice;
+            if (choice && choice.outcome === 'accepted') {
+              showToast('App installed to home screen!');
+            }
+            deferredInstallPrompt = null;
+          } else if (modal) {
+            modal.classList.remove('hidden');
+          }
+        });
+      }
+      if (closeBtn && modal) closeBtn.addEventListener('click', () => modal.classList.add('hidden'));
+      if (doneBtn && modal) doneBtn.addEventListener('click', () => modal.classList.add('hidden'));
+    }
+
+    // --- INIT ---
+    window.addEventListener('DOMContentLoaded', async () => {
+      await loadStateFromStorage();
+      setupEvents();
+      setupInstallUI();
+      renderAll();
+    });
+  </script>
+</body>
+</html>
